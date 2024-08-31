@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useWaitForTransactionReceipt, usePublicClient, useWalletClient } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, useWalletClient } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -15,7 +15,6 @@ const alchemyInstances = {
   [Network.ZK_SYNC]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ZK_SYNC }),
   [Network.ARB_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ARB_MAINNET }),
   [Network.MATIC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.MATIC_MAINNET }),
-  // Add other networks as needed
 };
 
 // Mapping from chain IDs to Alchemy SDK network enums
@@ -26,7 +25,6 @@ const chainIdToNetworkMap = {
   324: Network.ZK_SYNC,
   42161: Network.ARB_MAINNET,
   137: Network.MATIC_MAINNET,
-  // Add other mappings as needed
 };
 
 // Supported chain IDs
@@ -61,7 +59,8 @@ const safeNumber = (value) => {
       return tinyBig(0);
     }
     const num = tinyBig(value.toString());
-    return num.isNaN() ? tinyBig(0) : num;
+    // Use JavaScript's isNaN to check for NaN
+    return isNaN(num.toNumber()) ? tinyBig(0) : num;
   } catch (error) {
     console.error('Invalid number detected:', error, value);
     return tinyBig(0);
@@ -111,7 +110,7 @@ const TokenRow = ({ token }) => {
 
   const unroundedBalance = safeNumber(quote_rate).gt(0)
     ? safeNumber(quote).div(safeNumber(quote_rate))
-    : safeNumber(0);
+    : tinyBig(0);
 
   const roundedBalance = unroundedBalance.lt(0.001)
     ? unroundedBalance.round(10)
