@@ -204,7 +204,7 @@ export const GetTokens = () => {
     try {
       setError('');
       if (!chain || !supportedChains.includes(chain.id)) {
-        setLoading(false);
+        setError('Unsupported chain');
         return;
       }
 
@@ -212,7 +212,17 @@ export const GetTokens = () => {
       const alchemyNetwork = chainIdToNetworkMap[chainId];
       const alchemyInstance = alchemyInstances[alchemyNetwork];
 
+      if (!alchemyInstance) {
+        setError('Invalid Alchemy instance');
+        return;
+      }
+
       const balanceData = await alchemyInstance.core.getTokenBalances(address);
+      if (!balanceData || !balanceData.tokenBalances) {
+        setError('No token balances found');
+        return;
+      }
+
       const enrichedTokens = balanceData.tokenBalances.map((token) => {
         const globalTokenInfo = tokens.find((t) => t.contract_address === token.contractAddress);
         return { ...globalTokenInfo, ...token };
@@ -221,6 +231,7 @@ export const GetTokens = () => {
       setTokens(enrichedTokens);
       autoToggleTokens(enrichedTokens);
     } catch (error) {
+      console.error('Error fetching token data:', error);
       setError(`Error fetching data: ${error.message}`);
     } finally {
       setLoading(false);
