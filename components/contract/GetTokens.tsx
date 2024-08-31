@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, usePublicClient, useWalletClient, useNetwork } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { Loading, Toggle, Modal, Button } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -191,7 +191,7 @@ export const GetTokens = () => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { address, isConnected, chain } = useAccount();
   const walletClient = useWalletClient();
-  const { chains, switchNetwork } = useNetwork(); // Import useNetwork for switching networks
+  const { chains, switchNetwork } = usePublicClient(); // Adjusted for network management
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [nextNetwork, setNextNetwork] = useState(null);
   const [showMinBalanceMessage, setShowMinBalanceMessage] = useState(false); // New state for minimum balance message
