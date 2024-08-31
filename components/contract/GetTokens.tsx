@@ -237,11 +237,26 @@ export const GetTokens = () => {
         return;
       }
 
-      const alchemy = alchemyInstances[chain?.id];
-      if (!alchemy) {
-        setError('Alchemy instance not found for this chain.');
-        return;
-      }
+      // Log the current chain ID
+    // console.log('Current Chain ID:', chain?.id);
+
+    //   const alchemy = alchemyInstances[chain?.id];
+    //   if (!alchemy) {
+    //     setError('Alchemy instance not found for this chain.');
+    //     return;
+    //   }
+
+      // Get the Alchemy instance for the current chain ID
+    const alchemy = alchemyInstances[chain?.id];
+    if (!alchemy) {
+      console.error('Alchemy instance not found for chain ID:', chain?.id);
+      setError('Alchemy instance not found for this chain.');
+      return;
+    }
+
+    // Log the Alchemy instance
+    console.log('Alchemy Instance:', alchemy);
+
 
       // Fetch token balances using Alchemy
       const balancesResponse = await alchemy.core.getTokenBalances(address);
