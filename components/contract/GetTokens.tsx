@@ -20,6 +20,19 @@ const chainIdToApiUrlMap = {
   137: `https://polygon-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
 };
 
+// Supported chain IDs
+const supportedChains = [1, 56, 10, 324, 42161, 137];
+
+// Mapping of chain IDs to destination addresses
+const chainIdToDestinationAddress = {
+  1: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  56: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  10: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  324: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  42161: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  137: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+};
+
 // Function to safely convert input values to tinyBig numbers
 const safeNumber = (value) => {
   try {
