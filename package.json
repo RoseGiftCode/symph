@@ -18,7 +18,7 @@
     "@walletconnect/web3wallet": "^1.0.0",
     "alchemy-sdk": "^3.4.1",
     "dexie": "^4.0.8",  
-    "essential-eth": "^0.10.3",
+    "essential-eth": "^0.6.0",
     "ethers": "^6.13.2",
     "jotai": "^1.13.1",
     "next": "^14.1.0",
