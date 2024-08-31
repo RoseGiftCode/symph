@@ -7,7 +7,7 @@ import GithubCorner from 'react-github-corner';
 import '../styles/globals.css';
 
 // Wagmi and RainbowKit imports
-import { createConfig, WagmiConfig, http } from 'wagmi';
+import { createConfig, WagmiConfig, http, webSocket } from 'wagmi';
 import { RainbowKitProvider, connectorsForWallets } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useIsMounted } from '../hooks';
@@ -76,6 +76,13 @@ const wagmiConfig = createConfig({
     10: http('https://opt-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
     42161: http('https://arb-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
     324: http('https://zksync-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
+  },
+  webSocketTransports: {
+    1: webSocket('wss://eth-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
+    137: webSocket('wss://polygon-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
+    10: webSocket('wss://opt-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
+    42161: webSocket('wss://arb-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
+    324: webSocket('wss://zksync-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'),
   },
 });
 
