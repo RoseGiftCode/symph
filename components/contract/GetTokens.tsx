@@ -44,7 +44,7 @@ const alchemyInstances = {
   // Add other networks as needed
 };
 
-
+// Mapping from chain IDs to Alchemy SDK network enums
 const chainIdToNetworkMap = {
   1: Network.ETH_MAINNET,      // Ethereum Mainnet
   56: Network.BSC_MAINNET,     // BSC Mainnet
@@ -52,9 +52,8 @@ const chainIdToNetworkMap = {
   324: Network.ZK_SYNC,        // zkSync Mainnet
   42161: Network.ARB_MAINNET,  // Arbitrum Mainnet
   137: Network.MATIC_MAINNET,  // Polygon Mainnet
+  // Add other mappings as needed
 };
-
-
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
