@@ -13,7 +13,7 @@ const ALCHEMY_API_KEY = 'iUoZdhhu265uyKgw-V6FojhyO80OKfmV';
 // Mapping from chain IDs to API endpoints
 const chainIdToApiUrlMap = {
   1: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
-  56: `https://bsc-dataseed1.binance.org/`, // Example for BSC
+  // 56: `https://bsc-dataseed1.binance.org/`, // Example for BSC
   10: `https://optimism-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
   324: `https://zk-sync-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
   42161: `https://arbitrum-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
@@ -21,7 +21,7 @@ const chainIdToApiUrlMap = {
 };
 
 // Supported chain IDs
-const supportedChains = [1, 56, 10, 324, 42161, 137];
+const supportedChains = [1, 10, 324, 42161, 137];
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
