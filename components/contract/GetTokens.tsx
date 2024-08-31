@@ -57,13 +57,12 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
 // Function to safely convert input values to tinyBig numbers
 const safeNumber = (value) => {
   try {
-    // Check for undefined, null, or empty values
     if (value === undefined || value === null || value === '') {
       return tinyBig(0);
     }
-    // Convert to string and ensure it's a valid number
-    const num = tinyBig(value.toString());
-    return num.isNaN() ? tinyBig(0) : num;
+    // Convert the value to tinyBig
+    const num = tinyBig(value);
+    return num.isNaN ? tinyBig(0) : num;
   } catch (error) {
     console.error('Invalid number detected:', error, value);
     return tinyBig(0);
