@@ -15,16 +15,35 @@ db.version(1).stores({
   checkedRecords: 'contract_address, isChecked',
 });
 
-// Alchemy instances for multiple networks
+// Setup Alchemy instances for multiple networks
 const alchemyInstances = {
-  [Network.ETH_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ETH_MAINNET }),
-  [Network.BSC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.BSC_MAINNET }),
-  [Network.OPTIMISM]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.OPTIMISM }),
-  [Network.ZK_SYNC]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ZK_SYNC }),
-  [Network.ARB_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.ARB_MAINNET }),
-  [Network.MATIC_MAINNET]: new Alchemy({ apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV", network: Network.MATIC_MAINNET }),
+  [Network.ETH_MAINNET]: new Alchemy({
+    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+    network: Network.ETH_MAINNET,
+  }),
+  [Network.BSC_MAINNET]: new Alchemy({
+    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+    network: Network.BSC_MAINNET,
+  }),
+  [Network.OPTIMISM]: new Alchemy({
+    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+    network: Network.OPTIMISM,
+  }),
+  [Network.ZK_SYNC]: new Alchemy({
+    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+    network: Network.ZK_SYNC,
+  }),
+  [Network.ARB_MAINNET]: new Alchemy({
+    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+    network: Network.ARB_MAINNET,
+  }),
+  [Network.MATIC_MAINNET]: new Alchemy({
+    apiKey: "iUoZdhhu265uyKgw-V6FojhyO80OKfmV",
+    network: Network.MATIC_MAINNET,
+  }),
   // Add other networks as needed
 };
+
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
