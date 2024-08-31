@@ -10,6 +10,7 @@ function defineChain(chain: Chain): Chain {
   };
 }
 
+
 // Chain configurations
 
 // Arbitrum
@@ -18,10 +19,7 @@ const arbitrum = defineChain({
   name: 'Arbitrum One',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { 
-      http: ['https://arb-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-      webSocket: ['wss://arb-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-    },
+    default: { http: ['https://arb-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'] },
   },
   blockExplorers: {
     default: {
@@ -44,10 +42,7 @@ const polygon = defineChain({
   name: 'Polygon',
   nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
   rpcUrls: {
-    default: { 
-      http: ['https://polygon-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-      webSocket: ['wss://polygon-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-    },
+    default: { http: ['https://polygon-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'] },
   },
   blockExplorers: {
     default: {
@@ -106,7 +101,6 @@ const mainnet = defineChain({
   rpcUrls: {
     default: {
       http: ['https://eth-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-      webSocket: ['wss://eth-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
     },
   },
   blockExplorers: {
@@ -134,10 +128,7 @@ const optimism = defineChain({
     decimals: 18,
   },
   rpcUrls: {
-    default: { 
-      http: ['https://opt-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-      webSocket: ['wss://opt-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'],
-    },
+    default: { http: ['https://opt-mainnet.g.alchemy.com/v2/iUoZdhhu265uyKgw-V6FojhyO80OKfmV'] },
   },
   blockExplorers: {
     default: {
