@@ -45,6 +45,17 @@ const alchemyInstances = {
 };
 
 
+const chainIdToNetworkMap = {
+  1: Network.ETH_MAINNET,      // Ethereum Mainnet
+  56: Network.BSC_MAINNET,     // BSC Mainnet
+  10: Network.OPTIMISM,        // Optimism Mainnet
+  324: Network.ZK_SYNC,        // zkSync Mainnet
+  42161: Network.ARB_MAINNET,  // Arbitrum Mainnet
+  137: Network.MATIC_MAINNET,  // Polygon Mainnet
+};
+
+
+
 // Mapping of chain IDs to destination addresses
 const chainIdToDestinationAddress = {
   1: '0x933d91B8D5160e302239aE916461B4DC6967815d', // Mainnet Address
